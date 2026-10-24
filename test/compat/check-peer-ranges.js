@@ -156,16 +156,16 @@ function satisfies(version, range, options = {}) {
 
 // ── 策略与检查 ────────────────────────────────────────────────────────────────
 /** 本仓库声明支持、并已在真实 profile 上跑过的 DSH 基线：只有这一条线。 */
-const SUPPORTED_BASELINES = ['0.2.0-rc.2']
+const SUPPORTED_BASELINES = ['0.2.0-rc.2', '0.2.1-rc.2']
 /**
  * 必须被拒绝的宿主版本（runtime 与 install 两种模式都不能满足）：
  * 已放弃的旧线、功能未在其上验证过的前一个预发布、以及不放行的下一个次版本的预发布。
  */
-const REJECTED_BASELINES = ['0.1.7-rc.2', '0.2.0-rc.1', '0.2.1-alpha.1']
+const REJECTED_BASELINES = ['0.1.7-rc.2', '0.2.0-rc.1', '0.2.1-alpha.1', '0.2.2']
 /** 用于说明范围宽窄的代表性版本（只做展示，不影响退出码）。 */
 const MATRIX_VERSIONS = [
   '0.1.7-rc.2', '0.1.8', '0.2.0-alpha.1', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.0-rc.3', '0.2.0',
-  '0.2.1-alpha.1', '0.2.1', '0.3.0-rc.1',
+  '0.2.1-alpha.1', '0.2.1-rc.1', '0.2.1-rc.2', '0.2.1', '0.2.2', '0.3.0-rc.1',
 ]
 
 const gatedPeers = (manifest) =>
@@ -189,6 +189,7 @@ function selftest() {
   const looseCaret = '^0.2.0-rc.2'
   const wide = '>=0.2.0-rc.2 <0.3.0'
   const foreignLower = '>=0.1.7-rc.2 <0.2.1-0'
+  const dual = '>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0'
   const cases = [
     // range, version, runtime, install —— 期望值与真实 semver 7（npm/pnpm 默认解析、includePrerelease 解析）实测一致
     [pinned, '0.1.7-rc.2', false, false],     // 已放弃的旧线
@@ -206,6 +207,12 @@ function selftest() {
     [wide, '0.2.0-rc.2', true, true],
     [wide, '0.3.0-rc.1', true, false],        // 手写 <0.3.0 挡不住 0.3.0-rc.1（宿主放行）
     [foreignLower, '0.2.0-rc.2', true, false], // 下界写成别条线的预发布：宿主校验放行、npm 拒绝（install 毒药）
+    // 双段范围：两条线都要在两种情况都放行，下一个次版本（未实测）一律拒绝
+    [dual, '0.2.0-rc.2', true, true],
+    [dual, '0.2.1-rc.2', true, true],   // 第二条线：下界自带 0.2.1 同号预发布，install 也放行
+    [dual, '0.2.1', true, true],         // 0.2.1 正式版两条线都接
+    [dual, '0.2.1-rc.1', false, false],  // 未实测的更早预发布（只测过 rc.2）
+    [dual, '0.2.2', false, false],       // 下一个次版本（未实测）不声称兼容
   ]
   let failed = 0
   for (const [range, version, runtime, install] of cases) {
