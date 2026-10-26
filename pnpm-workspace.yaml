@@ -5,6 +5,7 @@ overrides:
   js-yaml: 4.3.2
 allowBuilds:
   '@jackwener/opencli': false
+  esbuild: set this to true or false
 minimumReleaseAgeExclude:
   - 'clsx@2.1.1'
   - '@deepseek-ai/dsh-client-ui-primitives@0.2.0-rc.2'

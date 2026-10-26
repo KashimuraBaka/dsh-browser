@@ -18,4 +18,20 @@ export declare class AuthProfileStore {
         allowedDomains: string[];
         persistState: boolean;
     }[];
+    /** Look up a single profile with its storageStatePath (undefined if unknown). */
+    get(id: string): ResolvedAuthProfile | undefined;
 }
+/**
+ * Dynamically load auth profiles from a directory. Each `*.json` file is one
+ * profile; the file name (without extension) is the profile id. The directory
+ * is created on demand so the feature works out of the box with an empty store.
+ * A file whose shape is not a valid {@link AuthProfileConfig} is skipped and
+ * reported via `errors` so one bad file cannot break the whole store.
+ */
+export declare function resolveAuthProfilesFromDirectory(dir: string): {
+    profiles: Record<string, AuthProfileConfig>;
+    errors: {
+        id: string;
+        reason: string;
+    }[];
+};

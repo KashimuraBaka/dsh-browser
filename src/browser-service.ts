@@ -24,8 +24,9 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { browserRuntimeCliPath, loadBrowserRuntime, opencliEntryPath, runOpencli, runNode, type CliResult } from './deps.ts'
 import type { ResolvedConfig } from './config.ts'
-import { AuthProfileStore, hostAllowed, type ResolvedAuthProfile } from './auth-profiles.ts'
-import { applyRuleSteps, resolveRulePack, type ResolvedRulePack } from './rule-packs.ts'
+import { defaultAuthProfilesDirectory } from './config.ts'
+import { AuthProfileStore, hostAllowed, resolveAuthProfilesFromDirectory, type ResolvedAuthProfile } from './auth-profiles.ts'
+import { applyRuleSteps, resolveRulePack, resolveRulePacksFromDirectory, type ResolvedRulePack } from './rule-packs.ts'
 import { runRecipe, type AnyRecipeStep, type BrowserRecipeStep, type RecipeRunResult, type RecipeStepResult, type RunRecipeOptions } from './automation.ts'
 import type { OutputSpec, Postcondition } from './automation-v2.ts'
 import { BUILTIN_SCRIPTS, builtinScript, executeUserscript, validateUserscript, type UserscriptValidation } from './scripts.ts'
@@ -438,7 +439,7 @@ export class BrowserService {
   private readonly sessionLimit: number
 
   constructor(private readonly config: ResolvedConfig) {
-    this.authProfiles = new AuthProfileStore(config.authProfiles)
+    this.authProfiles = new AuthProfileStore(resolveAuthProfilesFromDirectory(defaultAuthProfilesDirectory()).profiles)
     this.usageGovernor = new UsageGovernor(config.usagePolicy)
     this.sessionLimit = Math.max(1, Number.isInteger(config.maxSessions) ? config.maxSessions : DEFAULT_MAX_SESSIONS)
   }
@@ -668,11 +669,15 @@ export class BrowserService {
     return response
   }
 
-  private async transientContext(url: string, opts: { authProfile?: string; rulePack?: string; anonymous?: boolean } = {}): Promise<{ context: any; profile?: ResolvedAuthProfile; rulePack?: ResolvedRulePack }> {
+  private async transientContext(url: string, opts: { authProfile?: string; rulePack?: string; anonymous?: boolean; configDir?: string } = {}): Promise<{ context: any; profile?: ResolvedAuthProfile; rulePack?: ResolvedRulePack }> {
     if (!['http:', 'https:'].includes(new URL(url).protocol)) throw new Error('browser navigation requires an HTTP(S) URL')
-    const profileId = opts.anonymous ? undefined : (opts.authProfile ?? this.config.defaultAuthProfile)
-    const profile = profileId ? this.authProfiles.resolve(profileId, url) : undefined
-    const rulePack = resolveRulePack(this.config.rulePacks, opts.rulePack, url)
+    // A per-call config directory (conversation-action dir) re-resolves auth/rule config without a
+    // restart; otherwise the statically configured stores are used.
+    const authProfiles = opts.configDir ? new AuthProfileStore(resolveAuthProfilesFromDirectory(opts.configDir).profiles) : this.authProfiles
+    const rulePacks = opts.configDir ? resolveRulePacksFromDirectory(opts.configDir).packs : this.config.rulePacks
+    const profileId = opts.anonymous ? undefined : opts.authProfile
+    const profile = profileId ? authProfiles.resolve(profileId, url) : undefined
+    const rulePack = resolveRulePack(rulePacks, opts.rulePack, url)
     const stateOptions = profile
       ? storageStateOptions(profile.storageStatePath, `auth profile ${profile.id}`, profile.persistState)
       : (!opts.anonymous ? storageStateOptions(this.config.storageStatePath, 'global') : {})
@@ -1041,13 +1046,13 @@ export class BrowserService {
    * is confined to that bucket, which is what stops one session from observing
    * or mutating another's page, cookies, console or network log.
    */
-  private async ensureActivePage(targetUrl?: string, opts: { authProfile?: string; rulePack?: string; session?: string } = {}): Promise<any> {
+  private async ensureActivePage(targetUrl?: string, opts: { authProfile?: string; rulePack?: string; session?: string; configDir?: string } = {}): Promise<any> {
     if (targetUrl && !['http:', 'https:'].includes(new URL(targetUrl).protocol)) throw new Error('browser navigation requires an HTTP(S) URL')
     const state = this.state(opts.session)
     if (state.page && (state.page.isClosed() || !this.browserConnected())) await this.closePage(state)
     if (state.page && !state.page.isClosed()) {
       if (!targetUrl) return state.page
-      if ((opts.authProfile ?? this.config.defaultAuthProfile) === state.profile?.id && opts.rulePack === state.rulePack?.id) {
+      if (opts.authProfile === state.profile?.id && opts.rulePack === state.rulePack?.id) {
         if (state.profile) this.authProfiles.resolve(state.profile.id, targetUrl)
         if (state.rulePack) resolveRulePack(this.config.rulePacks, state.rulePack.id, targetUrl)
         return state.page
@@ -1750,4 +1755,32 @@ export class BrowserService {
     this.launching = undefined
     if (b) { try { await b.close() } catch { /* already closed */ } }
   }
+
+  /** List all dynamically loaded auth profiles (from the configured directory). */
+  listAuthProfiles(configDir?: string): { id: string; allowedDomains: string[]; persistState: boolean }[] {
+    if (configDir) {
+      const { profiles } = resolveAuthProfilesFromDirectory(configDir)
+      return new AuthProfileStore(profiles).list()
+    }
+    return this.authProfiles.list()
+  }
+
+  /** Resolve a single auth profile by id; when a targetUrl is given, also checks domain allowance and file validity. */
+  inspectAuthProfile(id: string, targetUrl?: string, configDir?: string): ResolvedAuthProfile & { usable: boolean; reason?: string } {
+    const store = configDir ? new AuthProfileStore(resolveAuthProfilesFromDirectory(configDir).profiles) : this.authProfiles
+    const profile = store.get(id)
+    if (!profile) throw new Error('unknown auth profile: ' + id)
+    let usable = true
+    let reason: string | undefined
+    if (targetUrl) {
+      try {
+        store.resolve(id, targetUrl)
+      } catch (error) {
+        usable = false
+        reason = error instanceof Error ? error.message : String(error)
+      }
+    }
+    return { ...profile, usable, reason }
+  }
+
 }

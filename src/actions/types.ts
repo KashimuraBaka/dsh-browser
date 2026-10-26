@@ -15,7 +15,7 @@ import type { AutomationAssetStore } from '../automation-assets.ts'
 import type { AutomationDevelopmentService } from '../automation-development.ts'
 import type { LocatorAmbiguity, PageGeneration } from '../locator.ts'
 
-export const ACTION_GROUPS = ['runtime', 'target', 'observe', 'act', 'inspect', 'script', 'automation', 'crawl', 'opencli'] as const
+export const ACTION_GROUPS = ['runtime', 'target', 'observe', 'act', 'inspect', 'script', 'automation', 'crawl', 'opencli', 'auth'] as const
 export type ActionGroup = typeof ACTION_GROUPS[number]
 
 /** Shared sub-schemas defined once and referenced by name from parameters. */
@@ -75,6 +75,8 @@ export interface ActionContext {
   /** The Host agent identity, for the few operations keyed on the agent itself. */
   agent: unknown
   signal: AbortSignal
+  /** Per-call config directory (conversation-action dir), host-injected; falls back to process.cwd() when absent. */
+  configDir?: string
 }
 
 /** The flags that differ per sub-action for an action that bundles several operations behind one `action` argument. */

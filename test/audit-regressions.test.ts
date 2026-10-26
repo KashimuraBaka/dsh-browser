@@ -112,19 +112,21 @@ test('auth profiles filter foreign storage; domains are admission rules, not a n
     { name: 'allowed', value: 'fixture', domain: '127.0.0.1', path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' },
     { name: 'foreign', value: 'fixture', domain: 'localhost', path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' },
   ], origins: [] }))
+  const authDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-browser-audit-auth-'))
+  fs.writeFileSync(path.join(authDir, 'fixture.json'), JSON.stringify({ storageStatePath, allowedDomains: ['127.0.0.1'], persistState: false }), 'utf8')
   const service = new BrowserService(resolveConfig({ channel: 'chrome', snapshotDir: dir, autoInstall: false,
-    authProfiles: { fixture: { storageStatePath, allowedDomains: ['127.0.0.1'] } },
   }))
   try {
-    await service.open(base, { authProfile: 'fixture' })
+    await service.open(base, { authProfile: 'fixture', configDir: authDir })
     // PR #36 moved the active context into per-session state; calls without a session key use the 'shared' bucket.
     const state = await (service as any).sessions.get('shared').context.storageState()
     assert.deepEqual(state.cookies.map((cookie: any) => cookie.name), ['allowed'])
-    await assert.rejects(service.open(base.replace('127.0.0.1', 'localhost'), { authProfile: 'fixture' }), /not allowed/)
+    await assert.rejects(service.open(base.replace('127.0.0.1', 'localhost'), { authProfile: 'fixture', configDir: authDir }), /not allowed/)
     assert.equal(foreignHits, 0)
   } finally {
     await service.close()
     await new Promise<void>(resolve => server.close(() => resolve()))
     fs.rmSync(dir, { recursive: true, force: true })
+    fs.rmSync(authDir, { recursive: true, force: true })
   }
 })

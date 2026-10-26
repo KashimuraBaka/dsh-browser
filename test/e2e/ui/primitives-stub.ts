@@ -13,3 +13,6 @@ export const SettingsValueField = (props: { id: string; label: string; hint?: st
 export const settingsTextField = (field: string) => ({ field, format: (value: unknown) => typeof value === 'string' ? value : '', parse: (text: string) => text.trim() === '' ? { kind: 'clear' } : { kind: 'set', value: text.trim() } })
 export const settingsNumberField = (field: string) => ({ field, format: (value: unknown) => typeof value === 'number' ? String(value) : '', parse: (text: string) => text.trim() === '' ? { kind: 'clear' } : { kind: 'set', value: Number(text) } })
 export class SettingsFormModel {}
+
+export const Switch = (props: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; title?: string; className?: string }) =>
+  createElement('button', { type: 'button', role: 'switch', 'aria-checked': props.checked, 'aria-label': props.label, title: props.title, disabled: props.disabled, className: props.className, onClick: () => props.onChange(!props.checked) }, null)

@@ -3,7 +3,6 @@
  * @module dsh-browser/config
  */
 import z from '@deepseek-ai/schemastery';
-import type { AuthProfileConfig } from './auth-profiles.ts';
 import type { RulePackConfig } from './rule-packs.ts';
 import { type AutomationMode, type ToolSurface } from './freedom.ts';
 import { type UsagePolicy, type UsagePolicyInput } from './usage-policy.ts';
@@ -49,12 +48,6 @@ export interface Config {
     headless: boolean;
     /** Path to a Playwright storageState JSON (persisted login state). */
     storageStatePath?: string;
-    /** Named, domain-scoped reusable login states. */
-    authProfiles?: Record<string, AuthProfileConfig>;
-    /** Optional named profile used when a caller does not select one. */
-    defaultAuthProfile?: string;
-    /** Domain-scoped, hash-pinned browser enhancement packs. */
-    rulePacks?: Record<string, RulePackConfig>;
     /** Explicit browser executable path override (rare). */
     executablePath?: string;
     /** Whether the bundled OpenCLI is enabled. */
@@ -99,9 +92,15 @@ export interface ResolvedConfig {
     browserRuntime: BrowserRuntime;
     headless: boolean;
     storageStatePath?: string;
-    authProfiles: Record<string, AuthProfileConfig>;
-    defaultAuthProfile?: string;
+    authProfileErrors: {
+        id: string;
+        reason: string;
+    }[];
     rulePacks: Record<string, RulePackConfig>;
+    rulePackErrors: {
+        id: string;
+        reason: string;
+    }[];
     executablePath?: string;
     opencliEnabled: boolean;
     automationMode: AutomationMode;
@@ -119,3 +118,7 @@ export interface ResolvedConfig {
 }
 export declare function defaultSnapshotDir(): string;
 export declare function resolveConfig(config: Config): ResolvedConfig;
+/** Default directory for dynamically loaded auth profiles, mirroring the automationAssets layout. */
+export declare function defaultAuthProfilesDirectory(): string;
+/** Default directory for dynamically loaded rule packs, mirroring the auth profiles layout. */
+export declare function defaultRulePacksDirectory(): string;

@@ -17,6 +17,8 @@ export interface AutomationExecutionOptions {
   expectedRevision?: number
   /** Run a recipe in a brand-new BrowserContext instead of the session's page (UserScripts already run in their own). */
   isolated?: boolean
+  /** Per-call config directory (conversation-action dir) re-resolving auth/rule config without restart. */
+  configDir?: string
 }
 
 /** What one run did, in the same shape for recipes and UserScripts, plus how strongly it was checked. */
@@ -100,7 +102,7 @@ async function runAssetOnce(service: BrowserService, asset: AutomationAsset, v2:
   let run: RecipeRunResult
   if (asset.kind === 'recipe') {
     // legacyRecipe: stored assets keep their pre-B2 behaviour for an unknown extract mode (reported as legacyFallback).
-    const common = { url, signal: options.signal, ...options.authProfile ? { authProfile: options.authProfile } : {}, ...options.rulePack ? { rulePack: options.rulePack } : {}, session: options.session, ...options.isolated ? { isolated: true as const } : {} }
+    const common = { url, signal: options.signal, ...options.authProfile ? { authProfile: options.authProfile } : {}, ...options.rulePack ? { rulePack: options.rulePack } : {}, ...options.configDir ? { configDir: options.configDir } : {}, session: options.session, ...options.isolated ? { isolated: true as const } : {} }
     const result = v2
       ? await service.recipe(materializeDeep(asset.recipe ?? [], inputs) as unknown as BrowserRecipeStep[], {
         ...common, schemaVersion: 2,
@@ -112,7 +114,7 @@ async function runAssetOnce(service: BrowserService, asset: AutomationAsset, v2:
     ;({ run, page: value } = splitRecipeResult(result))
   } else {
     try {
-      value = await service.runUserscript(url, asset.source ?? '', { signal: options.signal, inputs, ...options.authProfile ? { authProfile: options.authProfile } : {}, ...options.rulePack ? { rulePack: options.rulePack } : {} })
+      value = await service.runUserscript(url, asset.source ?? '', { signal: options.signal, inputs, ...options.authProfile ? { authProfile: options.authProfile } : {}, ...options.rulePack ? { rulePack: options.rulePack } : {}, ...options.configDir ? { configDir: options.configDir } : {} })
       run = { executionStatus: 'completed', validationStatus: 'not_checked', completedSteps: [], effects: 'unknown', outputs: [] }
     } catch (error) {
       // A UserScript is one opaque step: a throw is a failed run, reported in the same structure as a recipe.

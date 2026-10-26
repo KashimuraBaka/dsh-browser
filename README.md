@@ -447,26 +447,16 @@ Recipe 适合让模型生成可审计、可复现的多步操作，不必生成 
           minInputSetsForActivation: 2  # 声明了输入的资产，激活要求当前版本的通过凭据至少覆盖 N 组输入（1–5）；无输入的资产不受影响
         maxSessions: 8           # 同时持有 context+page 的 session 上限，超出淘汰最久未使用者
         storageStatePath: ''     # Playwright 登录态 JSON（复用已登录会话）
-        authProfiles:
-          forum:
-            storageStatePath: 'D:/secrets/forum.json'
-            allowedDomains: [example.com]
-            persistState: false  # 默认只读；true 才会原子回写刷新后的状态
-        rulePacks:
-          forum-enhanced:
-            matches: [example.com]
-            initScriptPath: 'D:/dsh/rules/forum.js'
-            initScriptSha256: '<64位sha256>'
-            steps:
-              - { type: waitFor, selector: '#results', timeoutMs: 10000 }
-              - { type: scroll, deltaY: 1600, repeat: 2, waitMs: 300 }
+        authProfilesDirectory: ''  # 限域登录态目录：每个 *.json 文件一个 profile（文件名=id），动态加载；留空用 DSH_HOME 默认
+
+        rulePacksDirectory: 'H:/dsh-workspace/profile/rule-packs'  # 动态加载目录：每个 *.json 一个 pack（文件名=id）
         autoInstall: false       # 缺内核时是否自动 install chromium
         verbose: false
 ```
 
 这些字段同时进入 Host settings 命名空间和专用可视化卡片：打开 `设置 → 插件 → 插件配置 → 浏览器自动化`，可调整工具自由度、Playwright/Patchright、OpenCLI、`usagePolicy`、自动化资产策略与限域登录态；同一卡片包含候选提示、脚本列表、JSON 编辑器、测试、激活和归档操作。
 
-- **卡片覆盖全部公开配置字段**：`maxSessions`（会话上限）和 `args`（Chromium 启动参数，JSON 字符串数组）在“浏览器运行时”分区；`authProfiles`、`rulePacks` 结构较复杂，卡片里不提供表单，只列出名称并注明“在配置文件中编辑”。“调用缓冲 JSON”和“自动化资产策略 JSON”的提示由代码生成，列出全部可用键名。
+- **卡片覆盖全部公开配置字段**：`maxSessions`、`args`、`authProfilesDirectory` 等文本字段在“浏览器运行时”分区有表单；`rulePacks` 改为目录动态加载后，卡片已有 `rulePacksDirectory` 控件；每个 pack 对应目录里的一个 *.json 文件（文件名=id），在对应文件中编辑。“调用缓冲 JSON”和“自动化资产策略 JSON”的提示由代码生成，列出全部可用键名。
 - **测试输入 JSON** 填一个对象是在当前页面运行一次；填 2 到 5 个对象组成的数组是逐组在全新上下文中回放（等价于 `inputSets`）。卡片逐组显示结果和 `PARAMETERIZATION_SUSPECT` 警告；声明了输入的资产在通过凭据覆盖的输入组数不足 `minInputSetsForActivation` 时，“激活”按钮旁给出说明并保持禁用。
 - **新建 recipe** 从 v2 模板开始（带 `schemaVersion: 2`、locator 步骤、`inputSchema` 和 `postconditions` 占位），模板本身可以直接保存。v1 recipe 有“转换为 v2”按钮：生成新草稿并选中，显示仍取第一个匹配的步骤数（`pendingDisambiguation`），原资产不变；有未保存修改时会先确认。
 - “提示文本”分区的“导出默认文本”按钮在只读文本框里显示全部默认值（与 `pnpm prompts:dump` 相同的 JSON），复制后按需改写。
@@ -552,7 +542,7 @@ Camoufox 当前没有硬集成：截至本版，其 JS 包要求 Node 22 且 pee
 ## 登录态复用
 
 - `channel: chromium` + `storageStatePath` 指向一份 storageState JSON，即可用你已登录的身份抓受限页面。
-- 新配置优先使用 `authProfiles`：按名称复用全局登录态，但必须用 `allowedDomains` 限域；默认只读，避免一次搜索意外改写 Cookie Vault。
+- 新配置优先使用 `authProfilesDirectory`：在该目录放一个 `*.json`（文件名即 profile id，含 `storageStatePath`/`allowedDomains`/`persistState`），即可按名称复用限域登录态；`allowedDomains` 后缀匹配限域，`persistState` 默认 `false`（只读），避免一次搜索意外改写 Cookie Vault。
 - `target.open` 和 web-search-pro 的平台搜索可选择 `authProfile` / `rulePack`。`runtime.status` 只显示 profile 名称、域名和回写状态，不显示文件路径或 Cookie。
 - RulePack 仍只允许有界动作；init script 必须是本地、SHA-256 固定且不超过 64KB。外部模型 JavaScript 使用独立的 UserScript 工具，不能冒充 RulePack；除 `unrestricted` 外需一次性审批。
 - 生成登录态：`npx playwright codegen --save-storage=storageState.json`（或复用 `dsh-web-search-pro` 的 `scripts/save-login.mjs`），把产物路径填进 `storageStatePath`。

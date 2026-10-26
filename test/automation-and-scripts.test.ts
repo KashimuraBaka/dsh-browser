@@ -256,13 +256,14 @@ test('real Playwright runtime executes built-ins, recipes, and a scoped userscri
   const address = server.address()
   if (!address || typeof address === 'string') throw new Error('fixture server did not expose a TCP port')
   const url = `http://127.0.0.1:${address.port}/page`
-  const bootstrapStatePath = path.join(snapshotDir, 'auth', 'bootstrap.json')
+  const bootstrapDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-browser-auth-'))
+  const bootstrapStatePath = path.join(bootstrapDir, 'bootstrap.state.json')
+  fs.writeFileSync(path.join(bootstrapDir, 'bootstrap.json'), JSON.stringify({ storageStatePath: bootstrapStatePath, allowedDomains: ['127.0.0.1'], persistState: true }), 'utf8')
   const service = new BrowserService(resolveConfig({
     enabled: true,
     channel: 'chromium',
     headless: true,
     opencliEnabled: true,
-    authProfiles: { bootstrap: { storageStatePath: bootstrapStatePath, allowedDomains: ['127.0.0.1'], persistState: true } },
     snapshotDir,
     autoInstall: false,
     verbose: false,
@@ -271,7 +272,7 @@ test('real Playwright runtime executes built-ins, recipes, and a scoped userscri
     const builtIn = await service.runBuiltinScript(url, 'article-clean')
     assert.match(builtIn.resultJson, /Hello DSH/)
     assert.equal(fs.existsSync(bootstrapStatePath), false)
-    await service.runBuiltinScript(url, 'article-clean', { authProfile: 'bootstrap' })
+    await service.runBuiltinScript(url, 'article-clean', { authProfile: 'bootstrap', configDir: bootstrapDir })
     assert.equal(fs.existsSync(bootstrapStatePath), true)
 
     const recipe = await service.recipe([
@@ -384,6 +385,7 @@ test('real Playwright runtime executes built-ins, recipes, and a scoped userscri
     await service.close()
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
     fs.rmSync(snapshotDir, { recursive: true, force: true })
+    fs.rmSync(bootstrapDir, { recursive: true, force: true })
   }
 })
 
@@ -462,9 +464,6 @@ test('browser service clears stale interactive state and relaunches after discon
 test('bounded crawl backs off and retries a real 429 response', async () => {
   let requests = 0
   const observedCookies: string[] = []
-  const authDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-browser-crawl-auth-'))
-  const storageStatePath = path.join(authDir, 'state.json')
-  fs.writeFileSync(storageStatePath, JSON.stringify({ cookies: [{ name: 'crawl_session', value: 'must-not-leak', domain: '127.0.0.1', path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' }], origins: [] }), 'utf8')
   const server = http.createServer((request, response) => {
     if (request.url !== '/') {
       response.writeHead(204)
@@ -491,8 +490,6 @@ test('bounded crawl backs off and retries a real 429 response', async () => {
     browserRuntime: 'playwright',
     opencliEnabled: false,
     automationMode: 'unrestricted',
-    authProfiles: { crawlAuth: { storageStatePath, allowedDomains: ['127.0.0.1'] } },
-    defaultAuthProfile: 'crawlAuth',
     usagePolicy: { minDelayMs: 0, maxConcurrency: 2, burst: 3, maxPagesPerRun: 2, maxDepth: 0, retryLimit: 1, backoffBaseMs: 10, cooldownMs: 100 },
     autoInstall: false,
     verbose: false,
@@ -509,6 +506,5 @@ test('bounded crawl backs off and retries a real 429 response', async () => {
   } finally {
     await service.close()
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
-    fs.rmSync(authDir, { recursive: true, force: true })
   }
 })

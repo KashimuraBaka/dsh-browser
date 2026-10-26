@@ -118,8 +118,7 @@ test('browser settings panel covers every public browser configuration field', (
   // Single-input controls, and the JSON code editors kept apart from them.
   const fields = [
     'enabled', 'automationMode', 'toolSurface', 'browserRuntime', 'channel', 'headless', 'opencliEnabled',
-    'autoInstall', 'storageStatePath', 'defaultAuthProfile',
-    'executablePath', 'snapshotDir', 'verbose', 'cdpPort', 'maxSessions',
+    'autoInstall', 'storageStatePath', 'executablePath', 'snapshotDir', 'verbose', 'cdpPort', 'maxSessions',
   ]
   assert.deepEqual(FIELD_SPECS.map(spec => spec.field).toSorted(), fields.toSorted())
   assert.deepEqual(JSON_FIELD_SPECS.map(spec => spec.field).toSorted(), ['args', 'automationAssets', 'prompts', 'usagePolicy'])

@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { AuthProfileStore } from '../src/auth-profiles.ts'
-import { resolveRulePack } from '../src/rule-packs.ts'
+import { resolveRulePack, resolveRulePacksFromDirectory } from '../src/rule-packs.ts'
 
 test('named auth profiles are domain-scoped and default to read-only state', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-browser-auth-profile-'))
@@ -58,4 +58,45 @@ test('rule packs require host match and a verified local init script', () => {
 
 test('rule pack validation rejects unbounded steps', () => {
   assert.throws(() => resolveRulePack({ bad: { matches: ['example.com'], steps: [{ type: 'wait' as const, waitMs: 120_000 }] } }, 'bad', 'https://example.com/'), /waitMs/i)
+})
+
+test('rule packs load from a directory with per-file ids', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-browser-rule-dir-'))
+  try {
+    // valid pack: filename is the id
+    fs.writeFileSync(
+      path.join(dir, 'bbs.json'),
+      JSON.stringify({
+        matches: ['bbs.zombieden.cn'],
+        initScriptPath: path.join(dir, 'bbs-inject.init.js'),
+        initScriptSha256: crypto.createHash('sha256').update('init').digest('hex'),
+        steps: [{ type: 'waitFor' as const, selector: '#board', timeoutMs: 5000 }],
+      }),
+      'utf8',
+    )
+    // illegal JSON: should surface in errors keyed by id
+    fs.writeFileSync(path.join(dir, 'broken.json'), '{ not valid json', 'utf8')
+    // step that violates validateStep: wait waitMs exceeds 10000
+    fs.writeFileSync(
+      path.join(dir, 'slow.json'),
+      JSON.stringify({ matches: ['example.com'], steps: [{ type: 'wait' as const, waitMs: 120_000 }] }),
+      'utf8',
+    )
+
+    const { packs, errors } = resolveRulePacksFromDirectory(dir)
+    assert.ok(packs.bbs, 'bbs pack should resolve')
+    assert.deepEqual(packs.bbs.matches, ['bbs.zombieden.cn'])
+    assert.equal(packs.bbs.steps.length, 1)
+    assert.equal(packs.bbs.steps[0].type, 'waitFor')
+
+    const broken = errors.find(e => e.id === 'broken')
+    assert.ok(broken, 'broken.json should produce an error')
+    assert.ok(broken?.reason, 'broken error should carry a reason')
+
+    const slow = errors.find(e => e.id === 'slow')
+    assert.ok(slow, 'slow.json should produce an error for invalid step')
+    assert.match(slow?.reason ?? '', /waitMs/i)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })

@@ -23,6 +23,7 @@ export const TARGET_ACTIONS: ActionDef[] = [
         ...args.authProfile ? { authProfile: args.authProfile } : {},
         ...args.rulePack ? { rulePack: args.rulePack } : {},
         ...args.capture ? { capture: args.capture as ('console' | 'network')[] } : {},
+        ...ctx.configDir ? { configDir: ctx.configDir } : {},
         session: ctx.session,
       })
     },

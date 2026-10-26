@@ -13,6 +13,8 @@ export interface AutomationExecutionOptions {
     expectedRevision?: number;
     /** Run a recipe in a brand-new BrowserContext instead of the session's page (UserScripts already run in their own). */
     isolated?: boolean;
+    /** Per-call config directory (conversation-action dir) re-resolving auth/rule config without restart. */
+    configDir?: string;
 }
 /** What one run did, in the same shape for recipes and UserScripts, plus how strongly it was checked. */
 export interface AutomationExecution extends RecipeRunResult {

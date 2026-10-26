@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { before } from 'node:test'
 import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 import { registerHooks } from 'node:module'
 
 registerHooks({
@@ -30,9 +30,9 @@ let skip: string | undefined
 before(async () => {
   try {
     const fromTsdown = createRequire(require.resolve('tsdown/package.json'))
-    const rolldown = await import(fromTsdown.resolve('rolldown'))
-    const entry = new URL('./ui/ssr-entry.tsx', import.meta.url).pathname
-    const stub = new URL('./e2e/ui/primitives-stub.ts', import.meta.url).pathname
+    const rolldown = await import(pathToFileURL(fromTsdown.resolve('rolldown')).href)
+    const entry = fileURLToPath(new URL('./ui/ssr-entry.tsx', import.meta.url))
+    const stub = fileURLToPath(new URL('./e2e/ui/primitives-stub.ts', import.meta.url))
     const bundle = await rolldown.rolldown({
       input: entry, platform: 'node', logLevel: 'silent',
       resolve: { alias: { '@deepseek-ai/dsh-client-ui-primitives': stub } },
@@ -62,7 +62,7 @@ const variants: Record<string, Record<string, unknown>> = {
 /** The ids of the controls and the notes the card rendered. */
 function fieldsRendered(html: string): { controls: string[]; notes: string[] } {
   return {
-    controls: [...html.matchAll(/<(?:input|textarea)[^>]*\bid="plugin-config-dsh-browser-([A-Za-z0-9-]+)"/g)].map(match => match[1]!),
+    controls: [...html.matchAll(/<(?:input|textarea|div)[^>]*\bid="plugin-config-dsh-browser-([A-Za-z0-9-]+)"/g)].map(match => match[1]!),
     notes: [...html.matchAll(/data-dsh-browser-config-note="([A-Za-z0-9]+)"/g)].map(match => match[1]!),
   }
 }
@@ -70,7 +70,7 @@ function fieldsRendered(html: string): { controls: string[]; notes: string[] } {
 test('every public config field is a control in the rendered card, or is named with a note that says where to edit it', (t) => {
   if (skip) return t.skip(skip)
   const publicFields = Object.keys((Config as unknown as { dict: Record<string, unknown> }).dict)
-  assert.ok(publicFields.length >= 21, 'the schema has the fields this test was written against')
+  assert.ok(publicFields.length >= 18, 'the schema has the fields this test was written against')
   for (const locale of ['en', 'zh'] as const) {
     const { html, missingKeys } = renderCard!({ locale })
     assert.deepEqual(missingKeys, [], `every label and hint the card asks for exists in ${locale}`)
@@ -86,11 +86,6 @@ test('every public config field is a control in the rendered card, or is named w
     for (const id of notes) assert.ok(publicFields.includes(id), `note ${id} is not a config field`)
     // The ones that used to go missing.
     for (const field of ['maxSessions', 'args']) assert.ok(controls.includes(field), `${field} has a control`)
-    for (const field of ['authProfiles', 'rulePacks']) {
-      assert.ok(notes.includes(field), `${field} has a note`)
-      assert.ok(!controls.includes(field))
-    }
-    assert.equal(html.includes(locale === 'zh' ? '配置文件' : 'config file'), true, 'the note says where to edit')
   }
 })
 
@@ -133,7 +128,7 @@ test('every text control of the card has an accessible name, in every state of t
       const { html, missingKeys } = renderCard!({ ...options, locale })
       assert.deepEqual(missingKeys, [], `${name}: no missing translations in ${locale}`)
       const controls = controlsOf(html)
-      assert.ok(controls.length > 20, `${name}: the card has its controls (${controls.length})`)
+      assert.ok(controls.length > 17, `${name}: the card has its controls (${controls.length})`)
       assert.deepEqual(controls.filter(control => !control.named).map(control => control.tag + '#' + (control.id ?? '(no id)')), [], `${name}/${locale}: controls without an accessible name`)
     }
   }
@@ -163,8 +158,9 @@ function controlsOf(html: string): Control[] {
       }
       continue
     }
-    if (closing || !['input', 'textarea', 'select'].includes(tag!)) continue
+    if (closing || !['input', 'textarea', 'select', 'button'].includes(tag!)) continue
     if (tag === 'input' && ['hidden', 'submit', 'button'].includes(attr(attrs, 'type') ?? '')) continue
+    if (tag === 'button' && attr(attrs, 'role') !== 'switch') continue
     const control: Control = { tag: tag!, ...attr(attrs, 'id') ? { id: attr(attrs, 'id')! } : {}, named: !!(attr(attrs, 'aria-label')?.trim() || attr(attrs, 'aria-labelledby')) }
     for (const label of stack) label.controls.push(control)
     controls.push({ control, inLabel: stack.length > 0 })

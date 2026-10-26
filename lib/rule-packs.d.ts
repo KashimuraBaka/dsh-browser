@@ -29,4 +29,11 @@ export interface ResolvedRulePack extends RulePackConfig {
     steps: RuleStep[];
 }
 export declare function resolveRulePack(packs: Record<string, RulePackConfig>, id: string | undefined, targetUrl: string): ResolvedRulePack | undefined;
+export declare function resolveRulePacksFromDirectory(dir: string): {
+    packs: Record<string, RulePackConfig>;
+    errors: {
+        id: string;
+        reason: string;
+    }[];
+};
 export declare function applyRuleSteps(page: any, pack: ResolvedRulePack | undefined): Promise<void>;

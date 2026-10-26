@@ -6,7 +6,6 @@ export declare const styles: {
     readonly titleRow: "dsb-title-row";
     readonly name: "dsb-name";
     readonly description: "dsb-description";
-    readonly badge: "dsb-badge";
     readonly chevron: "dsb-chevron";
     readonly chevronOpen: "dsb-chevron-open";
     readonly body: "dsb-body";
@@ -17,15 +16,14 @@ export declare const styles: {
     readonly field: "dsb-field";
     readonly invalid: "dsb-invalid";
     readonly fieldHead: "dsb-field-head";
+    readonly fieldHeadBadges: "dsb-field-head-badges";
+    readonly switchRow: "dsb-switch-row";
     readonly label: "dsb-label";
     readonly hint: "dsb-hint";
     readonly input: "dsb-input";
     readonly textarea: "dsb-textarea";
     readonly code: "dsb-code";
     readonly reset: "dsb-reset";
-    readonly toggle: "dsb-toggle";
-    readonly toggleLabel: "dsb-toggle-label";
-    readonly check: "dsb-check";
     readonly advanced: "dsb-advanced";
     readonly footer: "dsb-footer";
     readonly status: "dsb-status";
@@ -37,6 +35,7 @@ export declare const styles: {
     readonly assetRow: "dsb-asset-row";
     readonly assetToolbar: "dsb-asset-toolbar";
     readonly assetLayout: "dsb-asset-layout";
+    readonly assetLayoutEmpty: "dsb-asset-layout-empty";
     readonly assetList: "dsb-asset-list";
     readonly assetItem: "dsb-asset-item";
     readonly assetSelected: "dsb-asset-selected";

@@ -69,6 +69,7 @@ export const SCRIPT_ACTIONS: ActionDef[] = [
         ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
         ...args.authProfile ? { authProfile: args.authProfile } : {},
         ...args.rulePack ? { rulePack: args.rulePack } : {},
+        ...ctx.configDir ? { configDir: ctx.configDir } : {},
       })
     },
   },
@@ -93,6 +94,7 @@ export const SCRIPT_ACTIONS: ActionDef[] = [
         ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
         ...args.authProfile ? { authProfile: args.authProfile } : {},
         ...args.rulePack ? { rulePack: args.rulePack } : {},
+        ...ctx.configDir ? { configDir: ctx.configDir } : {},
       })
     },
   },

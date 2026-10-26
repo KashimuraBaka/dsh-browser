@@ -6,13 +6,14 @@
 import path from 'node:path'
 import os from 'node:os'
 import z from '@deepseek-ai/schemastery'
-import type { AuthProfileConfig } from './auth-profiles.ts'
 import type { RulePackConfig } from './rule-packs.ts'
 import { resolveAutomationMode, resolveToolSurface, type AutomationMode, type ToolSurface } from './freedom.ts'
 import { resolveUsagePolicy, type UsagePolicy, type UsagePolicyInput } from './usage-policy.ts'
 import { PROMPT_LIMITS } from './prompt-limits.ts'
 import { promptsSource, type PromptsSource } from './prompts.ts'
 import { resolveAutomationAssetPolicy, type AutomationAssetPolicy, type AutomationAssetPolicyInput } from './automation-assets.ts'
+import { resolveAuthProfilesFromDirectory } from './auth-profiles.ts'
+import { resolveRulePacksFromDirectory } from './rule-packs.ts'
 
 export const BROWSER_RUNTIMES = ['playwright', 'patchright'] as const
 export type BrowserRuntime = typeof BROWSER_RUNTIMES[number]
@@ -46,12 +47,6 @@ export interface Config {
   headless: boolean
   /** Path to a Playwright storageState JSON (persisted login state). */
   storageStatePath?: string
-  /** Named, domain-scoped reusable login states. */
-  authProfiles?: Record<string, AuthProfileConfig>
-  /** Optional named profile used when a caller does not select one. */
-  defaultAuthProfile?: string
-  /** Domain-scoped, hash-pinned browser enhancement packs. */
-  rulePacks?: Record<string, RulePackConfig>
   /** Explicit browser executable path override (rare). */
   executablePath?: string
   /** Whether the bundled OpenCLI is enabled. */
@@ -107,26 +102,6 @@ export const Config = z.object({
   browserRuntime: z.string().default('playwright').volatile(),
   headless: z.boolean().default(true).volatile(),
   storageStatePath: z.string().volatile(),
-  authProfiles: z.dict(z.object({
-    storageStatePath: z.string(),
-    allowedDomains: z.array(z.string()).default([]),
-    persistState: z.boolean().default(false),
-  })).volatile(),
-  defaultAuthProfile: z.string().volatile(),
-  rulePacks: z.dict(z.object({
-    matches: z.array(z.string()).default([]),
-    initScriptPath: z.string(),
-    initScriptSha256: z.string(),
-    steps: z.array(z.object({
-      type: z.string(),
-      selector: z.string(),
-      timeoutMs: z.number(),
-      optional: z.boolean(),
-      deltaY: z.number(),
-      repeat: z.number(),
-      waitMs: z.number(),
-    })).default([]),
-  })),
   executablePath: z.string().volatile(),
   opencliEnabled: z.boolean().default(true).volatile(),
   automationMode: z.string().default('standard').volatile(),
@@ -196,9 +171,9 @@ export interface ResolvedConfig {
   browserRuntime: BrowserRuntime
   headless: boolean
   storageStatePath?: string
-  authProfiles: Record<string, AuthProfileConfig>
-  defaultAuthProfile?: string
+  authProfileErrors: { id: string; reason: string }[]
   rulePacks: Record<string, RulePackConfig>
+  rulePackErrors: { id: string; reason: string }[]
   executablePath?: string
   opencliEnabled: boolean
   automationMode: AutomationMode
@@ -253,6 +228,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
   }
   const optional = <T>(field: string): T | undefined => plain(c[field] as T | undefined)
   const snapshotDir = optional<string>('snapshotDir') ?? defaultSnapshotDir()
+  const rulePackResolution = resolveRulePacksFromDirectory(defaultRulePacksDirectory());
   return {
     enabled: read('enabled', true),
     channel: read('channel', 'chromium'),
@@ -269,12 +245,26 @@ export function resolveConfig(config: Config): ResolvedConfig {
     maxSessions: read('maxSessions', 8),
     snapshotDir,
     verbose: read('verbose', false),
-    authProfiles: read('authProfiles', {}),
-    rulePacks: read('rulePacks', {}),
+
+    rulePacks: rulePackResolution.packs,
+    rulePackErrors: rulePackResolution.errors,
     args: Array.isArray(plain(c.args)) ? (plain(c.args) as string[]).map(String) : [],
+    authProfileErrors: resolveAuthProfilesFromDirectory(defaultAuthProfilesDirectory()).errors,
     ...optional<number>('cdpPort') !== undefined ? { cdpPort: optional<number>('cdpPort') } : {},
-    ...optional<string>('defaultAuthProfile') ? { defaultAuthProfile: optional<string>('defaultAuthProfile') } : {},
+
     ...optional<string>('storageStatePath') ? { storageStatePath: optional<string>('storageStatePath') } : {},
     ...optional<string>('executablePath') ? { executablePath: optional<string>('executablePath') } : {},
   }
+}
+
+/** Default directory for dynamically loaded auth profiles, mirroring the automationAssets layout. */
+export function defaultAuthProfilesDirectory(): string {
+  const home = process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh')
+  return path.join(home, 'data', 'browser', 'auth')
+}
+
+/** Default directory for dynamically loaded rule packs, mirroring the auth profiles layout. */
+export function defaultRulePacksDirectory(): string {
+  const home = process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh')
+  return path.join(home, 'data', 'browser', 'rule-packs')
 }

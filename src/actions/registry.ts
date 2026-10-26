@@ -15,6 +15,7 @@ import { SCRIPT_ACTIONS } from './script.ts'
 import { AUTOMATION_ACTIONS } from './automation.ts'
 import { CRAWL_ACTIONS } from './crawl.ts'
 import { OPENCLI_ACTIONS } from './opencli.ts'
+import { AUTH_ACTIONS } from './auth.ts'
 import { validateArgs, type ValidationResult } from './schema.ts'
 
 export const ACTIONS: readonly ActionDef[] = [
@@ -34,6 +35,7 @@ export const GROUP_SUMMARIES: Record<ActionGroup, string> = {
   automation: 'search/run reusable assets, develop drafts, inline recipes',
   crawl: 'bounded multi-page crawl',
   opencli: 'bundled OpenCLI site adapters',
+  auth: 'list and inspect dynamically loaded auth profiles',
 }
 
 /**

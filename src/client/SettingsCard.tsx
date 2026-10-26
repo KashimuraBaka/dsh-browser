@@ -14,7 +14,7 @@
  */
 
 import { useEffect } from 'react'
-import { SettingsForm, SettingsValueField } from '@deepseek-ai/dsh-client-ui-primitives'
+import { SettingsForm, SettingsValueField, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { BrowserSettingsCardProps } from './index.ts'
 import { ASSET_POLICY_KEYS, USAGE_POLICY_KEYS } from '../policy-keys.ts'
@@ -55,7 +55,7 @@ function formLabels(t: Translator): SettingsFormLabels {
 const SECTION_LAYOUT: readonly { title: LabelKey; hint: LabelKey; fields: readonly string[]; notes?: readonly string[] }[] = [
   { title: 'freedom', hint: 'freedomHint', fields: ['enabled', 'automationMode', 'toolSurface', 'opencliEnabled'] },
   { title: 'runtime', hint: 'runtimeHint', fields: ['browserRuntime', 'channel', 'headless', 'autoInstall', 'executablePath', 'cdpPort', 'maxSessions', 'args'] },
-  { title: 'advanced', hint: 'advancedHint', fields: ['storageStatePath', 'defaultAuthProfile', 'snapshotDir', 'verbose'], notes: CONFIG_FILE_ONLY_FIELDS },
+  { title: 'advanced', hint: 'advancedHint', fields: ['storageStatePath', 'snapshotDir', 'verbose'], notes: CONFIG_FILE_ONLY_FIELDS },
 ]
 
 /** The usage section's JSON boxes. */
@@ -82,20 +82,31 @@ export function SettingsCard(props: BrowserSettingsCardProps) {
   const field = (name: string) => {
     const fieldState = SINGLE_INPUT_FIELDS.has(name) ? state.fields[name as SectionField] : state.jsonFields[name]
     const policyKeys = POLICY_KEY_LISTS[name]
-    return <SettingsValueField
-      key={name}
-      id={`plugin-config-dsh-browser-${name}`}
-      label={t(name as LabelKey)}
-      hint={policyKeys ? `${t(`${name}Hint` as LabelKey)} ${t('policyKeys')} ${policyKeys.join(', ')}` : t(`${name}Hint` as LabelKey)}
-      overriddenLabel={t('overridden')}
-      resetLabel={t('reset')}
-      invalidLabel={t(JSON_FIELDS.has(name) ? 'invalidJson' : 'invalidNumber')}
-      numeric={numeric.has(name)}
-      disabled={disabled}
-      {...fieldState}
-      onEdit={text => props.edit(name, text)}
-      onReset={() => props.resetField(name)}
-    />
+    if (name === 'enabled' || name === 'headless' || name === 'autoInstall' || name === 'verbose') {
+      const hint = policyKeys ? `${t(`${name}Hint` as LabelKey)} ${t('policyKeys')} ${policyKeys.join(', ')}` : t(`${name}Hint` as LabelKey)
+      return (
+        <div key={name} id={`plugin-config-dsh-browser-${name}`} className={css.field}>
+          <div className={css.fieldHead}>
+            <span className={css.label}>{t(name as LabelKey)}</span>
+            <div className={css.fieldHeadBadges}>
+              {fieldState.overridden ? <Tag tone="neutral">{t('overridden')}</Tag> : null}
+              <button type="button" className={css.reset} disabled={disabled} onClick={() => props.resetField(name)}>{t('reset')}</button>
+            </div>
+          </div>
+          <div className={css.switchRow}>
+            <Switch
+              checked={fieldState.text === 'true'}
+              onChange={next => props.edit(name, next ? 'true' : 'false')}
+              label={t(name as LabelKey)}
+              disabled={disabled}
+              title={hint}
+            />
+          </div>
+          <p className={css.hint}>{hint}</p>
+        </div>
+      )
+    }
+    return <SettingsValueField key={name} id={`plugin-config-dsh-browser-${name}`} label={t(name as LabelKey)} hint={policyKeys ? `${t(`${name}Hint` as LabelKey)} ${t('policyKeys')} ${policyKeys.join(', ')}` : t(`${name}Hint` as LabelKey)} overriddenLabel={t('overridden')} resetLabel={t('reset')} invalidLabel={t(JSON_FIELDS.has(name) ? 'invalidJson' : 'invalidNumber')} numeric={numeric.has(name)} disabled={disabled} {...fieldState} onEdit={text => props.edit(name, text)} onReset={() => props.resetField(name)} />
   }
   /** A public field with no form: its name, what it is for, and where to edit it. */
   const configFileNote = (name: string) => <div key={name} className={css.field} data-dsh-browser-config-note={name}>
@@ -181,10 +192,19 @@ function PromptsPanel(props: BrowserSettingsCardProps & { disabled: boolean }) {
     </div>
     <div className={css.grid}>
       <div className={css.field}>
-        <label className={css.toggleLabel}>
-          <input type="checkbox" className={css.check} checked={prompts.skillEnabled} disabled={disabled} onChange={event => props.setPromptSkillEnabled(event.currentTarget.checked)} />
-          <span><span className={css.label}>{t('promptsSkillEnabled')}</span><p className={css.hint}>{t('promptsSkillEnabledHint')}</p></span>
-        </label>
+        <div className={css.fieldHead}>
+          <span className={css.label}>{t('promptsSkillEnabled')}</span>
+        </div>
+        <div className={css.switchRow}>
+          <Switch
+            checked={prompts.skillEnabled}
+            onChange={next => props.setPromptSkillEnabled(next)}
+            label={t('promptsSkillEnabled')}
+            disabled={disabled}
+            title={t('promptsSkillEnabledHint')}
+          />
+        </div>
+        <p className={css.hint}>{t('promptsSkillEnabledHint')}</p>
       </div>
       {text('skillDescription')}
       {text('skillBodyFile')}
@@ -271,7 +291,7 @@ function AutomationAssetsPanel(props: BrowserSettingsCardProps) {
       <p>{t('assetLeaveTitle')}</p>
       <div className={css.actions}><button type="button" className={css.secondary} onClick={props.cancelLeaveAutomationAsset}>{t('assetLeaveKeep')}</button><button type="button" className={css.primary} onClick={props.confirmLeaveAutomationAsset}>{t('assetLeaveConfirm')}</button></div>
     </div> : null}
-    <div className={css.assetLayout}>
+    <div className={`${css.assetLayout}${assets.length ? '' : ` ${css.assetLayoutEmpty}`}`}>
       <div className={css.assetList}>{assets.length ? assets.map(asset => <button type="button" key={asset.id} className={`${css.assetItem} ${selected?.id === asset.id ? css.assetSelected : ''}`} onClick={() => props.requestSelectAutomationAsset(asset.id)}><span><strong>{asset.name}</strong><small>{asset.kind} · {asset.status} · r{asset.revision}</small></span><span className={css.assetTest}>{asset.testStatus}</span></button>) : <p className={css.hint}>{t('assetEmpty')}</p>}</div>
       <div className={css.assetEditor}>
         <label className={css.label} htmlFor="dsh-browser-asset-editor">{t('assetEditor')}{dirty ? <> · <span data-dsh-browser-dirty>{t('assetEditorDirtyBadge')}</span></> : null}</label>

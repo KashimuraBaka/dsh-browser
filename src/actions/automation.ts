@@ -163,6 +163,7 @@ export const AUTOMATION_ACTIONS: ActionDef[] = [
           signal: ctx.signal,
           ...args.authProfile ? { authProfile: args.authProfile } : {},
           ...args.rulePack ? { rulePack: args.rulePack } : {},
+          ...ctx.configDir ? { configDir: ctx.configDir } : {},
           session: ctx.session,
         })
         const shown = (entry: InputSetResult) => {
@@ -192,6 +193,7 @@ export const AUTOMATION_ACTIONS: ActionDef[] = [
           signal: ctx.signal,
           ...args.authProfile ? { authProfile: args.authProfile } : {},
           ...args.rulePack ? { rulePack: args.rulePack } : {},
+          ...ctx.configDir ? { configDir: ctx.configDir } : {},
           session: ctx.session,
         })
         const capped = capJson(result.value, 50_000)
@@ -281,6 +283,7 @@ export const AUTOMATION_ACTIONS: ActionDef[] = [
         signal: ctx.signal,
         ...args.authProfile ? { authProfile: args.authProfile } : {},
         ...args.rulePack ? { rulePack: args.rulePack } : {},
+        ...ctx.configDir ? { configDir: ctx.configDir } : {},
         session: ctx.session,
       })
       const capped = capJson(result.value, DEVELOP_LIMIT)
@@ -322,6 +325,7 @@ export const AUTOMATION_ACTIONS: ActionDef[] = [
           ...args.waitMs !== undefined ? { waitMs: args.waitMs } : {},
           ...args.authProfile ? { authProfile: args.authProfile } : {},
           ...args.rulePack ? { rulePack: args.rulePack } : {},
+          ...ctx.configDir ? { configDir: ctx.configDir } : {},
           ...v2 ? { schemaVersion: 2 as const, gotoSameOrigin: true, ...args.allowedDomains ? { allowedDomains: args.allowedDomains } : {}, ...postconditions ? { postconditions } : {} } : {},
           session: ctx.session,
         })

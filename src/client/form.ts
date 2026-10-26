@@ -18,7 +18,7 @@ import { PROMPT_TEXT_FIELDS, canonicalPrompts, extrasText, getAt, setAt, validEx
 
 export type SectionField =
   | 'enabled' | 'automationMode' | 'toolSurface' | 'browserRuntime' | 'channel' | 'headless' | 'opencliEnabled'
-  | 'autoInstall' | 'storageStatePath' | 'defaultAuthProfile'
+  | 'autoInstall' | 'storageStatePath'
   | 'executablePath' | 'snapshotDir' | 'verbose' | 'cdpPort' | 'maxSessions'
 
 /** Retained name for callers that predate the section/JSON split. */
@@ -154,7 +154,6 @@ export const FIELD_SPECS: readonly SettingsFieldSpec[] = [
   booleanField('opencliEnabled'),
   booleanField('autoInstall'),
   textField('storageStatePath'),
-  textField('defaultAuthProfile'),
   textField('executablePath'),
   textField('snapshotDir'),
   booleanField('verbose'),
@@ -169,12 +168,10 @@ export const JSON_FIELD_SPECS: readonly SettingsFieldSpec[] = [
 ] as const
 
 /**
- * Public config fields the card has no form for, on purpose: nested records (named login states, rule packs with
- * hash-pinned scripts) that are safer to edit in the profile config file. The card names each one and says so, instead
- * of leaving it out without a word. `rulePacks` is not `.volatile()` in the Host schema, so no form could write it.
+ * Public config fields the card has no form for, on purpose: nested records (named login states) that are safer to
+ * edit in the profile config file. The card names each one and says so, instead of leaving it out without a word.
  */
-export const CONFIG_FILE_ONLY_FIELDS = ['authProfiles', 'rulePacks'] as const
-
+export const CONFIG_FILE_ONLY_FIELDS = [] as const
 /** Section fields rendered as JSON code editors rather than single inputs. */
 export const JSON_FIELDS: ReadonlySet<string> = new Set(JSON_FIELD_SPECS.map(spec => spec.field))
 

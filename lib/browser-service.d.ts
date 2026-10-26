@@ -626,4 +626,15 @@ export declare class BrowserService {
         session?: string;
     }): Promise<BrowserStatus>;
     close(): Promise<void>;
+    /** List all dynamically loaded auth profiles (from the configured directory). */
+    listAuthProfiles(configDir?: string): {
+        id: string;
+        allowedDomains: string[];
+        persistState: boolean;
+    }[];
+    /** Resolve a single auth profile by id; when a targetUrl is given, also checks domain allowance and file validity. */
+    inspectAuthProfile(id: string, targetUrl?: string, configDir?: string): ResolvedAuthProfile & {
+        usable: boolean;
+        reason?: string;
+    };
 }

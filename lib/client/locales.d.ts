@@ -142,10 +142,6 @@ export declare const zh: {
     readonly autoInstallHint: "可能触发较大下载，日常建议关闭并显式执行 runtime.install 动作。";
     readonly storageStatePath: "全局 storageState 路径";
     readonly storageStatePathHint: "旧版兼容入口；新配置优先使用限域 AuthProfile。";
-    readonly authProfiles: "AuthProfiles JSON";
-    readonly authProfilesHint: "命名登录态、allowedDomains 与 persistState。";
-    readonly defaultAuthProfile: "默认 AuthProfile";
-    readonly defaultAuthProfileHint: "未显式选择登录态时使用；crawl.crawl 始终匿名。";
     readonly rulePacks: "RulePacks JSON";
     readonly rulePacksHint: "域名匹配、哈希固定 init script 和有界步骤。";
     readonly executablePath: "浏览器可执行文件";

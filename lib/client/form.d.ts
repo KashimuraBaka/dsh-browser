@@ -12,7 +12,7 @@
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { SettingsFieldSpec, SettingsFormScope, SettingsFieldState, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives';
 import { type PromptTextFieldId } from './prompts-form.ts';
-export type SectionField = 'enabled' | 'automationMode' | 'toolSurface' | 'browserRuntime' | 'channel' | 'headless' | 'opencliEnabled' | 'autoInstall' | 'storageStatePath' | 'defaultAuthProfile' | 'executablePath' | 'snapshotDir' | 'verbose' | 'cdpPort' | 'maxSessions';
+export type SectionField = 'enabled' | 'automationMode' | 'toolSurface' | 'browserRuntime' | 'channel' | 'headless' | 'opencliEnabled' | 'autoInstall' | 'storageStatePath' | 'executablePath' | 'snapshotDir' | 'verbose' | 'cdpPort' | 'maxSessions';
 /** Retained name for callers that predate the section/JSON split. */
 export type SettingField = SectionField;
 /** One control's state, as the shared form model reports it. */
@@ -50,11 +50,10 @@ export declare const FIELD_SPECS: readonly SettingsFieldSpec[];
 /** The JSON-shaped section fields: objects (policies, prompts) and the launch-argument array. */
 export declare const JSON_FIELD_SPECS: readonly SettingsFieldSpec[];
 /**
- * Public config fields the card has no form for, on purpose: nested records (named login states, rule packs with
- * hash-pinned scripts) that are safer to edit in the profile config file. The card names each one and says so, instead
- * of leaving it out without a word. `rulePacks` is not `.volatile()` in the Host schema, so no form could write it.
+ * Public config fields the card has no form for, on purpose: nested records (named login states) that are safer to
+ * edit in the profile config file. The card names each one and says so, instead of leaving it out without a word.
  */
-export declare const CONFIG_FILE_ONLY_FIELDS: readonly ["authProfiles", "rulePacks"];
+export declare const CONFIG_FILE_ONLY_FIELDS: readonly [];
 /** Section fields rendered as JSON code editors rather than single inputs. */
 export declare const JSON_FIELDS: ReadonlySet<string>;
 /** Every field the card renders, in display order. */

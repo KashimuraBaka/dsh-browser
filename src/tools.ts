@@ -102,13 +102,19 @@ export function registerTools(ctx: Context, config: ResolvedConfig, service: Bro
   // Tool descriptions are the exception: the host fixes them when the tool is registered.
   const promptsNow = (): ResolvedPrompts | undefined => config.prompts?.current()
 
-  const actionContext = (exec: any): ActionContext => ({
-    service, config, ...assets ? { assets } : {}, ...development ? { development } : {},
-    session: sessionKeyFor(exec?.agent),
-    sessionId: sessionId(exec),
-    agent: exec?.agent,
-    signal: exec?.signal ?? new AbortController().signal,
-  })
+  const actionContext = (exec: any): ActionContext => {
+    // The host may inject a per-session config directory (conversation-action dir); fall back to cwd otherwise.
+    const wd = (ctx as any).workingDirectory
+    const configDir = wd?.get(exec?.agent?.session) ?? process.cwd()
+    return {
+      service, config, ...assets ? { assets } : {}, ...development ? { development } : {},
+      session: sessionKeyFor(exec?.agent),
+      sessionId: sessionId(exec),
+      agent: exec?.agent,
+      signal: exec?.signal ?? new AbortController().signal,
+      configDir,
+    }
+  }
 
   if (config.toolSurface === 'flat') {
     const exposed = new Set(configuredBrowserActions(config.automationMode, config.automationAssets, config.enabled))
