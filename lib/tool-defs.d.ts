@@ -39,6 +39,10 @@ export declare const CALL_PARAMETERS: {
         readonly additionalProperties: true;
         readonly description: "Arguments for the action.";
     };
+    readonly workingDirectory: {
+        readonly type: "string";
+        readonly description: "会话/对话工作目录，用于解析 auth/rule-pack 配置。";
+    };
 };
 /** The two overridable tool names. */
 export declare const PROMPT_TOOL_NAMES: readonly ["browser_index", "browser_call"];

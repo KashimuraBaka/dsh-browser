@@ -26,7 +26,7 @@ import { browserRuntimeCliPath, loadBrowserRuntime, opencliEntryPath, runOpencli
 import type { ResolvedConfig } from './config.ts'
 import { defaultAuthProfilesDirectory } from './config.ts'
 import { AuthProfileStore, hostAllowed, resolveAuthProfilesFromDirectory, type ResolvedAuthProfile } from './auth-profiles.ts'
-import { applyRuleSteps, resolveRulePack, resolveRulePacksFromDirectory, type ResolvedRulePack } from './rule-packs.ts'
+import { applyRuleSteps, resolveRulePack, resolveRulePacksFromDirectory, type ResolvedRulePack, type RulePackConfig } from './rule-packs.ts'
 import { runRecipe, type AnyRecipeStep, type BrowserRecipeStep, type RecipeRunResult, type RecipeStepResult, type RunRecipeOptions } from './automation.ts'
 import type { OutputSpec, Postcondition } from './automation-v2.ts'
 import { BUILTIN_SCRIPTS, builtinScript, executeUserscript, validateUserscript, type UserscriptValidation } from './scripts.ts'
@@ -354,6 +354,12 @@ interface SessionState {
   generationClock: number
   profile?: ResolvedAuthProfile
   rulePack?: ResolvedRulePack
+  /**
+   * Config directory that produced this session's `profile`/`rulePack`. Kept so a repeat open of the
+   * same page re-validates against THIS directory instead of the statically configured default store,
+   * which may legitimately be empty (the default auth directory is recreated on demand once deleted).
+   */
+  configDir?: string
   captureConsole: boolean
   captureNetwork: boolean
   capturedConsole: BrowserConsoleRecord[]
@@ -367,6 +373,24 @@ interface SessionPage {
   id: string
   page: any
   generation: number
+}
+
+/**
+ * Auth profile store used to re-validate a session's existing profile.
+ *
+ * Prefers the directory the session was opened with ({@link SessionState.configDir}), then the directory
+ * supplied by the current call, then the statically configured store. A session's own directory wins so the
+ * profile it was built from stays resolvable even when the default directory has since been emptied.
+ */
+function storeForProfile(service: BrowserService, state: SessionState, opts: { configDir?: string }): AuthProfileStore {
+  const dir = state.configDir ?? opts.configDir
+  return dir ? new AuthProfileStore(resolveAuthProfilesFromDirectory(dir).profiles) : (service as unknown as { authProfiles: AuthProfileStore }).authProfiles
+}
+
+/** Same resolution order as {@link storeForProfile}, for rule packs (which are plain records, not a store). */
+function rulePacksForResolution(service: BrowserService, state: SessionState, opts: { configDir?: string }): Record<string, RulePackConfig> {
+  const dir = state.configDir ?? opts.configDir
+  return dir ? resolveRulePacksFromDirectory(dir).packs : (service as unknown as { config: { rulePacks: Record<string, RulePackConfig> } }).config.rulePacks
 }
 
 function newSessionState(): SessionState {
@@ -1053,8 +1077,12 @@ export class BrowserService {
     if (state.page && !state.page.isClosed()) {
       if (!targetUrl) return state.page
       if (opts.authProfile === state.profile?.id && opts.rulePack === state.rulePack?.id) {
-        if (state.profile) this.authProfiles.resolve(state.profile.id, targetUrl)
-        if (state.rulePack) resolveRulePack(this.config.rulePacks, state.rulePack.id, targetUrl)
+        // Re-validate with the store this session was OPENED with, not the static default: the default auth
+        // directory is recreated empty on demand, so a profile that resolved fine at open time would be
+        // reported unknown here. Falling back to this call's configDir covers a session opened before the
+        // caller started passing one.
+        if (state.profile) storeForProfile(this, state, opts).resolve(state.profile.id, targetUrl)
+        if (state.rulePack) resolveRulePack(rulePacksForResolution(this, state, opts), state.rulePack.id, targetUrl)
         return state.page
       }
       await this.closePage(state)
@@ -1064,6 +1092,8 @@ export class BrowserService {
       state.context = session.context
       state.profile = session.profile
       state.rulePack = session.rulePack
+      // Remember where these came from so later re-validations use the same directory.
+      state.configDir = opts.configDir
     } else {
       const browser = await this.ensure()
       state.context = await browser.newContext(storageStateOptions(this.config.storageStatePath, 'global'))
@@ -1234,7 +1264,7 @@ export class BrowserService {
     return state
   }
 
-  async open(url: string, opts: { waitMs?: number; authProfile?: string; rulePack?: string; capture?: readonly ('console' | 'network')[]; session?: string } = {}): Promise<InteractiveState> {
+  async open(url: string, opts: { waitMs?: number; authProfile?: string; rulePack?: string; capture?: readonly ('console' | 'network')[]; session?: string; configDir?: string } = {}): Promise<InteractiveState> {
     const page = await this.ensureActivePage(url, opts)
     const state = this.state(opts.session)
     this.resetCapture(state, opts.capture)

@@ -222,6 +222,12 @@ interface SessionState {
     generationClock: number;
     profile?: ResolvedAuthProfile;
     rulePack?: ResolvedRulePack;
+    /**
+     * Config directory that produced this session's `profile`/`rulePack`. Kept so a repeat open of the
+     * same page re-validates against THIS directory instead of the statically configured default store,
+     * which may legitimately be empty (the default auth directory is recreated on demand once deleted).
+     */
+    configDir?: string;
     captureConsole: boolean;
     captureNetwork: boolean;
     capturedConsole: BrowserConsoleRecord[];
@@ -443,6 +449,7 @@ export declare class BrowserService {
         rulePack?: string;
         capture?: readonly ('console' | 'network')[];
         session?: string;
+        configDir?: string;
     }): Promise<InteractiveState>;
     click(target: BrowserTarget, opts?: {
         expectGeneration?: number;

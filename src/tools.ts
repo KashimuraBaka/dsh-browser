@@ -93,6 +93,16 @@ const ENVELOPE_SCHEMA = {
 
 const renderEnvelope = (_args: unknown, value: unknown): { type: 'text'; text: string }[] => [{ type: 'text', text: JSON.stringify(value) }]
 
+/** Extract a caller-supplied workingDirectory (string) from a record, returning it and a copy without that key. */
+const pluckWorkingDirectory = (record: Record<string, unknown> | undefined): { value: string | undefined; rest: Record<string, unknown> } => {
+  if (record && typeof record.workingDirectory === 'string' && record.workingDirectory) {
+    const rest = { ...record }
+    delete rest.workingDirectory
+    return { value: record.workingDirectory, rest }
+  }
+  return { value: undefined, rest: record ?? {} }
+}
+
 export function registerTools(ctx: Context, config: ResolvedConfig, service: BrowserService, assets?: AutomationAssetStore, runtime: ToolRuntime = {}): void {
   if (!config.enabled) return
   const development = assets ? new AutomationDevelopmentService(assets, config.automationAssets) : undefined
@@ -102,10 +112,25 @@ export function registerTools(ctx: Context, config: ResolvedConfig, service: Bro
   // Tool descriptions are the exception: the host fixes them when the tool is registered.
   const promptsNow = (): ResolvedPrompts | undefined => config.prompts?.current()
 
-  const actionContext = (exec: any): ActionContext => {
-    // The host may inject a per-session config directory (conversation-action dir); fall back to cwd otherwise.
-    const wd = (ctx as any).workingDirectory
-    const configDir = wd?.get(exec?.agent?.session) ?? process.cwd()
+
+  /** Resolve the per-call config directory (conversation-action dir).
+   * Priority: explicit caller parameter (top-level workingDirectory or workingDirectory inside the action args)
+   * > host-injected workingDirectory service (read defensively; the fiber may not inject it)
+   * > process.cwd(). */
+  const resolveConfigDir = (explicit: unknown, exec: any): string => {
+    if (typeof explicit === 'string' && explicit) return explicit
+    try {
+      const wd = (ctx as any).workingDirectory
+      const dir = wd?.get(exec?.agent?.session)
+      if (typeof dir === 'string' && dir) return dir
+    } catch {
+      // The workingDirectory service is not injected in this fiber (e.g. the harness run_code sub-tool). Fall through to cwd.
+    }
+    return process.cwd()
+  }
+
+  const actionContext = (exec: any, explicit?: unknown): ActionContext => {
+    const configDir = resolveConfigDir(explicit, exec)
     return {
       service, config, ...assets ? { assets } : {}, ...development ? { development } : {},
       session: sessionKeyFor(exec?.agent),
@@ -158,15 +183,19 @@ export function registerTools(ctx: Context, config: ResolvedConfig, service: Bro
     timeoutMs: 600_000,
     // Calls are serialized per agent step: interactions share one page, and the Host classifier cannot read the action.
     isConcurrencySafe: () => false,
-    async execute(args: { action: string; args?: Record<string, unknown> }, exec: unknown) {
+    async execute(args: { action: string; args?: Record<string, unknown>; workingDirectory?: string }, exec: unknown) {
       runtime.refreshSkill?.()
-      return runAction(args.action, args.args, actionContext(exec), runEnv) as Promise<ActionEnvelope> as never
+      // workingDirectory may be supplied at the top level OR inside the action args; prefer the top-level one.
+      const explicitTop = typeof args.workingDirectory === 'string' && args.workingDirectory ? args.workingDirectory : undefined
+      const { value: explicitInArgs, rest: actionArgs } = pluckWorkingDirectory(args.args)
+      const explicit = explicitTop ?? explicitInArgs
+      return runAction(args.action, actionArgs, actionContext(exec, explicit), runEnv) as Promise<ActionEnvelope> as never
     },
   }))
 }
 
 /** One flat tool for one action: the same registry entry, projected as a native tool. */
-function flatTool(action: ActionDef, actionContext: (exec: any) => ActionContext, runEnv: RunEnvironment, prompts?: ResolvedPrompts): unknown {
+function flatTool(action: ActionDef, actionContext: (exec: any, explicit?: unknown) => ActionContext, runEnv: RunEnvironment, prompts?: ResolvedPrompts): unknown {
   const summary = prompts?.actions[action.name]?.summary ?? action.summary
   const notes = prompts?.actions[action.name]?.notes ?? action.notes
   return defineTool({
@@ -177,7 +206,8 @@ function flatTool(action: ActionDef, actionContext: (exec: any) => ActionContext
     timeoutMs: action.timeoutMs + 5_000,
     isConcurrencySafe: (args: unknown) => traitsFor(action, args).concurrencySafe,
     async execute(args: Record<string, unknown>, exec: unknown) {
-      return runAction(action.name, args, actionContext(exec), runEnv) as never
+      const { value, rest } = pluckWorkingDirectory(args)
+      return runAction(action.name, rest, actionContext(exec, value), runEnv) as never
     },
   } as never)
 }

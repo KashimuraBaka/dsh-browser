@@ -29,6 +29,7 @@ export const INDEX_PARAMETERS = {
 export const CALL_PARAMETERS = {
   action: { type: 'string', required: true, description: 'Action name, e.g. target.open.' },
   args: { type: 'object', additionalProperties: true, description: 'Arguments for the action.' },
+  workingDirectory: { type: 'string', description: '会话/对话工作目录，用于解析 auth/rule-pack 配置。' },
 } as const
 
 /** The two overridable tool names. */

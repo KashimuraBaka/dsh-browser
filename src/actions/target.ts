@@ -14,17 +14,21 @@ export const TARGET_ACTIONS: ActionDef[] = [
       authProfile: { type: 'string', description: 'Named, domain-scoped auth profile from dsh-browser config.' },
       rulePack: { type: 'string', description: 'Named, domain-scoped enhancement rule pack.' },
       capture: { type: 'array', items: { type: 'string', enum: ['console', 'network'] }, description: 'In-memory capture channels for this navigation.' },
+      session: { type: 'string', description: 'Named page bucket within this caller\'s own session. Default bucket when omitted. Bucket names are private to the caller, so this can never address another session\'s page.' },
     },
     approval: 'none', readOnly: true, mutating: false, concurrencySafe: false, timeoutMs: 60_000,
-    examples: [{ args: { url: 'https://example.com/' } }, { args: { url: 'https://example.com/', capture: ['console', 'network'] }, note: 'enables inspect.console / inspect.requests' }],
+    examples: [{ args: { url: 'https://example.com/' } }, { args: { url: 'https://example.com/', capture: ['console', 'network'] }, note: 'enables inspect.console / inspect.requests' }, { args: { url: 'https://example.com/', session: 'scratch' }, note: 'keep a second independent page beside the default one' }],
     async execute(args, ctx) {
+      // A caller-supplied name is scoped UNDER the caller's own session key: it selects a different bucket for
+      // the same caller, and can never name another session's bucket (which would defeat session isolation).
+      const session = typeof args.session === 'string' && args.session ? `${ctx.session}#${args.session}` : ctx.session
       return ctx.service.open(args.url, {
         ...args.waitMs !== undefined ? { waitMs: args.waitMs } : {},
         ...args.authProfile ? { authProfile: args.authProfile } : {},
         ...args.rulePack ? { rulePack: args.rulePack } : {},
         ...args.capture ? { capture: args.capture as ('console' | 'network')[] } : {},
         ...ctx.configDir ? { configDir: ctx.configDir } : {},
-        session: ctx.session,
+        session,
       })
     },
   },
