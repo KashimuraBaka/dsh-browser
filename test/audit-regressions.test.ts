@@ -64,21 +64,23 @@ test('asset API registers its own channel and never intercepts the shared one', 
   let channel: string | undefined
   let handler: any
   const disposers: (() => void)[] = []
+  const connection = { rpc: {
+    handle(ch: string, h: unknown) {
+      channel = ch; handler = h
+      return async () => { channel = undefined; handler = undefined }
+    },
+    // Registering on `/api` anyway would replace the shared channel's
+    // fallback and 404 every other plugin's endpoint, so fail loudly here.
+    intercept() { throw new Error('must not intercept the shared /api channel') },
+  } }
   const ctx: any = {
     inject(names: unknown, setup: (ctx: unknown) => void) {
       assert.deepEqual(names, ['connection', 'webServer'])
       setup(ctx)
     },
     effect(setup: () => () => void) { disposers.push(setup()) },
-    root: { connection: { rpc: {
-      handle(ch: string, h: unknown) {
-        channel = ch; handler = h
-        return async () => { channel = undefined; handler = undefined }
-      },
-      // Registering on `/api` anyway would replace the shared channel's
-      // fallback and 404 every other plugin's endpoint, so fail loudly here.
-      intercept() { throw new Error('must not intercept the shared /api channel') },
-    } } },
+    connection,
+    root: { connection },
   }
   registerAutomationAssetRpc(ctx, { snapshot: () => ({ assets: [] }) } as never, {} as never)
   assert.equal(channel, '/dsh-browser-assets', 'the plugin must own a private channel')

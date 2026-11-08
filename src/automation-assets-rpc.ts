@@ -55,14 +55,17 @@ export function registerAutomationAssetRpc(ctx: Context, store: AutomationAssetS
     // transport owns envelope decoding, the admission/authentication fence, the
     // cancellation signal, and the Peer scope the handler receives — none of
     // which a manual route can reconstruct.
-    // The dedicated registrar mounts its Web route through the Context that
-    // reads it. The root Context owns webServer; the plugin effect owns cleanup.
-    const connection = (connectionCtx.root as unknown as {
+    const connection = (connectionCtx as unknown as {
       connection: {
         rpc: {
           /** Register one authenticated absolute channel prefix owned by this plugin. */
           handle(channel: string, handler: ConnectionRpcHandler): () => Promise<void>
         }
+        /**
+         * The scoped registrar behind `rpc.handle`, taking the owning Context explicitly.
+         * Private in the package's types; reached only as the Cordis-4.1 fallback below.
+         */
+        register(owner: Context, channel: string, handler: ConnectionRpcHandler): () => Promise<void>
       }
     }).connection
     const handler: ConnectionRpcHandler = async (endpoint, rawPayload) => {
@@ -129,9 +132,27 @@ export function registerAutomationAssetRpc(ctx: Context, store: AutomationAssetS
         return { ok: false, error: { code: 'bad-request' as const, message: stripAnsi(String(error instanceof Error ? error.message : error)).slice(0, 500), details } }
       }
     }
-    connectionCtx.effect(
-      () => connection.rpc.handle(CHANNEL, handler),
-      'dsh-browser: automation asset RPC channel',
-    )
+
+    /**
+     * Register the channel on the Context that injected Connection and WebServer.
+     *
+     * Cordis 4.0 resolves `this.ctx` inside the `rpc` getter to the reading
+     * Context, so `rpc.handle` owns the route there. Cordis 4.1 (DSH 0.2.2)
+     * resolves it to a shadow whose defining site is the Connection plugin
+     * Context — which does not inject `webServer` — so `rpc.handle` throws
+     * `cannot get property "webServer" without inject` and the channel silently
+     * never mounts. The scoped registrar takes the owner explicitly, so pass
+     * this injected Context (it reads `webServer`) and keep the public path
+     * whenever it works.
+     */
+    const registerChannel = (): (() => Promise<void>) => {
+      try {
+        return connection.rpc.handle(CHANNEL, handler)
+      } catch (error) {
+        if (!(error instanceof Error) || !/without inject/.test(error.message)) throw error
+        return connection.register(connectionCtx, CHANNEL, handler)
+      }
+    }
+    connectionCtx.effect(registerChannel, 'dsh-browser: automation asset RPC channel')
   })
 }

@@ -8,6 +8,14 @@ const verified = [{ type: 'click', selector: '#go' }, { type: 'assert', text: 'R
 const save = (call: ReturnType<typeof rpcFixture>['call'], extra: Record<string, unknown> = {}) =>
   call('save', { asset: { kind: 'recipe', name: 'Search', domains: ['example.com'], recipe: verified, ...extra } })
 
+test('rpc: the channel still mounts when Cordis 4.1 shadows the service accessor and rpc.handle cannot read webServer', async () => {
+  const { call, registeredOwner, ctx } = rpcFixture(undefined, undefined, { shadowedWebServerAccess: true })
+  // Falls back to the scoped registrar with the injected Context as owner; the
+  // root Context cannot read webServer either, so passing it would repeat the bug.
+  assert.equal(registeredOwner(), ctx)
+  assert.deepEqual((await call('snapshot')).value.assets, [])
+})
+
 test('rpc: activate carries expectedRevision; a missing or stale one is refused with its reason, and the happy path activates', async () => {
   const { call, store } = rpcFixture()
   const saved = (await save(call)).value

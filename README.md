@@ -17,6 +17,7 @@
 | `0.2.0` | `dsh-v0.2.0-rc.2` | 第一个面向 DSH 桌面版 0.2.0 线的正式版，也是后续开发的基底。**只支持 `dsh-v0.2.0-rc.2` 这一条线**（peer `>=0.2.0-rc.2 <0.2.1-0`）：去掉为更旧宿主保留的兼容分支（`settings.register` 的 live scope 回退等），并去掉对 `settings` 服务的必需依赖（只声明 `inject: ['tools']`，没有 Settings 服务的组合里也能启动）；不改工具、动作、schema、文本与审批规则。在 `0.2.0-rc.2` 上完成 327 项测试、64 项真实浏览器 e2e 与 peer 双解析模式检查。旧宿主（0.1.7 线，`dsh-v0.1.7-rc.2`）继续使用 `0.1.17` |
 | `0.2.1` | `dsh-v0.2.0-rc.2`（不变） | 相对 `0.2.0` 的补丁版，DSH 基线与 peer 范围（`>=0.2.0-rc.2 <0.2.1-0`）不变，只含两项：(1) 参数无效的调用不再先弹审批：审批钩子先判断动作是否被当前 `automationMode` 禁用（禁用仍直接拒绝），再用与 `runAction` 相同的校验检查参数，无效则不询问，执行层再校验一次并返回带精简 schema 的 `INVALID_ARGS`，不执行任何页面动作；参数有效时的审批规则与理由不变。(2) “探索转草稿”（`draft_from_journal`）的指导文本补充。不改动作、参数 schema 与审批规则。在 `0.2.0-rc.2` 上完成 337 项测试与 66 项真实浏览器 e2e |
 | `0.2.2` | `dsh-v0.2.0-rc.2` ~ `dsh-v0.2.1-rc.2` | 在 `0.2.1` 的 peer 范围基础上扩成双段（`>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0`），让同一份包可装在 `0.2.0-rc.2` 与 `0.2.1-rc.2` 两代宿主上：两条线都只在两种解析模式（宿主 `includePrerelease`、npm 默认）下通过才放行，`0.2.1` 之前的预发布（`0.2.1-rc.1` 等）与下一个次版本 `0.2.2` 一律拒绝。cordis peer 由精确 `4.0.4` 放宽为 `~4.0.4`（接住宿主 `0.2.0-rc.2` 的 4.0.4 与 `0.2.1-rc.2` 的 4.0.5）。代码（动作、schema、审批规则、提示文本）相对 `0.2.1` 不变；`devDependencies` 对齐到 `0.2.1-rc.2` 与 cordis `4.0.5`，在 `0.2.1-rc.2` 宿主上重跑 typecheck、构建、测试与 peer 双解析模式检查 |
+| `0.2.3` | `dsh-v0.2.0-rc.2` ~ `dsh-v0.2.2-rc.1` | 扩成三段 peer（追加 `>=0.2.2-rc.1 <0.2.3-0`），让同一份包可装在 `0.2.0-rc.2`、`0.2.1-rc.2` 与 `0.2.2-rc.1` 三代宿主上；`0.2.3` 与更早的未验证预发布一律拒绝。**修复 DSH 0.2.2（Cordis 4.1.0）下的设置/资产 RPC 通道**：Cordis 4.1 把服务 getter 里的 `this.ctx` 解析成以 Connection 插件为定义点的 shadow，而该 Context 未注入 `webServer`，`connection.rpc.handle` 因而抛 `cannot get property "webServer" without inject`，通道静默不挂载；现在保留公共路径，失败时回退到带显式 owner 的作用域注册器。cordis peer 扩为 `~4.0.4 || ~4.1.0`，`devDependencies` 对齐到 `0.2.2-rc.1`、cordis `4.1.0` 与 schemastery `3.19.0`；动作、schema、审批规则、提示文本与配置项不变。在 `0.2.2-rc.1` 上完成 typecheck、构建、peer 双解析检查、真实 `ToolsService` 挂载，并在 `0.2.1-rc.2` 与 `0.2.2-rc.1` 两个宿主上分别跑通真实 Connection/WebServer 的资产 RPC 通道 |
 
 `0.1.17` 把 DSH 运行时依赖由精确锁定改为范围声明（`^0.1.7-rc.2 || >=0.2.0-rc.1 <0.2.1-0`），
 使同一份包可装在 `0.1.7-rc.2` 与 `0.2.0-rc.2` 两代宿主上。`0.2.0-rc.1` 起的新功能（动作体系、skill、recipe v2、
@@ -33,27 +34,27 @@
   会在**组装期**直接报 `is incompatible with dsh 0.2.1` 并点名，而不是拖到用户机器上变成运行期怪错
   （`0.1.5 → 0.1.7` 曾一次性打断所有按 `0.1.5-alpha.1` 构建的插件）。
 - 范围只表示「测过哪些」，不等于承诺不破坏；真正的防线是每换一个 DSH 版本重跑一遍这套验证。
-  `pnpm run test:peers`（已并入 `pnpm verify`）用两种解析模式逐个断言受管 peer：`0.2.0-rc.2` 与 `0.2.1-rc.2` 必须通过，
-  `0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.1-alpha.1`、`0.2.2` 必须被拒绝；并自带 `--selftest` 已知行为自校验。
+  `pnpm run test:peers`（已并入 `pnpm verify`）用两种解析模式逐个断言受管 peer：`0.2.0-rc.2`、`0.2.1-rc.2` 与 `0.2.2-rc.1` 必须通过，
+  `0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.1-alpha.1`、`0.2.3` 必须被拒绝；并自带 `--selftest` 已知行为自校验。
 
 `0.1.15` 使用 DSH 新客户端分包：状态存储来自
 `dsh-client-store`，设置契约来自 `dsh-client-ui-settings`，客户端 Context
 来自 Cordis。npm 上 `0.1.15-alpha.2` 仍声明旧版 DSH peer，不能与本版混用。
 
 设置的读取不再对宿主版本做适配：Host 半边直接使用 Loader 传给 `apply` 的条目配置（设置页由条目的 `Config` schema 派生，
-条目 id 为 `browser`），浏览器设置卡片使用 `ConfigForm`/`ctx.configForms`，`devDependencies` 锁定 `0.2.0-rc.2`。
+条目 id 为 `browser`），浏览器设置卡片使用 `ConfigForm`/`ctx.configForms`，`devDependencies` 锁定 `0.2.2-rc.1`。
 可编辑字段都是 `.volatile()`：保存后新值写入运行中的引用，但浏览器进程、工具暴露与审批规则在启动时一次读取，
 所以保存后仍需重启 profile 才生效（只有提示文本覆盖里的目录、错误提示等按调用实时读取，见「自定义提示文本」）。
 
-插件只声明 `inject: ['tools']`，**不依赖宿主的 `settings` 服务**：Cordis 4.0.4（与 4.0.5 一致）把声明了的 `inject` 一律当作必需，若声明 `settings`，
+插件只声明 `inject: ['tools']`，**不依赖宿主的 `settings` 服务**：Cordis 4.0.4/4.0.5/4.1.0 都把声明了的 `inject` 一律当作必需，若声明 `settings`，
 在没有该服务的组合（如 sdk-minimal，或关了 settings 行的 profile）里插件会一直挂起。插件的 Host 半边从不读取 `ctx.settings`，
 配置来自 Loader 条目；没有 Settings 服务时按 `Config` 默认值运行，设置卡片只是不显示（客户端只在宿主提供 `browser` 命名空间时才挂载它）。
 
 ## 安装
 
 ```bash
-# 默认安装（browser_index / browser_call 工具体系，面向 dsh-v0.2.0-rc.2 与 dsh-v0.2.1-rc.2 宿主）：
-dsh plugin --profile web add @anweat/dsh-browser@0.2.2
+# 默认安装（browser_index / browser_call 工具体系，面向 dsh-v0.2.0-rc.2 至 dsh-v0.2.2-rc.1 宿主）：
+dsh plugin --profile web add @anweat/dsh-browser@0.2.3
 # 宿主仍是 0.1.7 线（dsh-v0.1.7-rc.2）时，固定安装 0.1.17（旧的 browser_* 工具体系）：
 dsh plugin --profile web add @anweat/dsh-browser@0.1.17
 # 或本地目录 / tarball：
@@ -62,13 +63,20 @@ dsh plugin --profile web add ./dsh-browser
 dsh --profile web
 ```
 
-> `0.2.0` 与 `0.2.1` 只支持 `dsh-v0.2.0-rc.2`（peer `>=0.2.0-rc.2 <0.2.1-0`）；`0.2.2` 起扩成双段 peer（`>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0`），可装在 `dsh-v0.2.0-rc.2` 与 `dsh-v0.2.1-rc.2` 两代宿主上；范围之外的宿主版本未经验证，
+> `0.2.0` 与 `0.2.1` 只支持 `dsh-v0.2.0-rc.2`（peer `>=0.2.0-rc.2 <0.2.1-0`）；`0.2.2` 起扩成双段，`0.2.3` 起扩成三段 peer（`>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0 || >=0.2.2-rc.1 <0.2.3-0`），可装在 `dsh-v0.2.0-rc.2`、`dsh-v0.2.1-rc.2` 与 `dsh-v0.2.2-rc.1` 三代宿主上；范围之外的宿主版本未经验证，
 > 旧宿主（`dsh-v0.1.7-rc.2` 线）请固定使用 `0.1.17`。预发布通道 `@next` 不再用于安装，`0.2.0-rc.1` 仅作历史记录。
 > 若你的 harness 是包含未发布提交的本地源码 checkout，版本号可能有出入——用
 > `dsh plugin --profile web add ./<path>` 并在 profile 的 `pnpm-workspace.yaml`
 > 里对齐版本后重装即可。
 
 ## 从旧版本升级
+
+### 升级到 0.2.3
+
+- 从 `0.2.2` 直接升级即可，动作、参数 schema、审批规则、面向模型的文本与设置项都没有变化，已保存的资产、配置与提示文本覆盖照常使用。
+- **DSH 0.2.2-rc.1 的兼容修复。**`0.2.2` 的 peer 上界是 `<0.2.2-0`，DSH 0.2.2-rc.1 会在组装期把整个 bundle 判为 `incompatible` 并跳过（日志里出现 `skipping profile bundle "@anweat/dsh-browser"`，插件工具与设置卡片都不出现）。`0.2.3` 追加 `>=0.2.2-rc.1 <0.2.3-0`，同一份包可装在 `0.2.0-rc.2`、`0.2.1-rc.2` 与 `0.2.2-rc.1` 上。
+- **设置页 / 资产面板的 RPC 通道在 0.2.2 上重新可用。**DSH 0.2.2 带 Cordis 4.1.0，服务 getter 的 `this.ctx` 变为以 Connection 插件为定义点的 shadow；该 Context 没有注入 `webServer`，`connection.rpc.handle` 会抛 `cannot get property "webServer" without inject`，`/dsh-browser-assets/*` 路由因此静默缺失（设置卡片能挂载，但读取 prompt 状态/资产列表会 404）。`0.2.3` 在公共路径失败时改用带显式 owner 的作用域注册器，把通道挂到真正注入了 `webServer` 的 Context 上。0.2.1 及更早宿主仍走原来的公共路径。
+- 安装：`dsh plugin --profile web add @anweat/dsh-browser@0.2.3`，然后完整重启 profile（web profile 关闭了 HMR）。
 
 ### 升级到 0.2.1
 
